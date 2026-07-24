@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Archmaxim: Smart University File Archive</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav class="topbar">
+    <div class="topbar-inner">
+        <div class="logo">
+            <span class="logo-mark">A</span>
+            <span class="logo-text">Archmaxim</span>
+        </div>
+
+        <div class="topbar-actions">
+            <button id="openUploadBtn" class="btn-accent" style="display:none;">+ Upload</button>
+
+            <button id="openUploadBtn" class="btn-accent" style="display:none;">+ Upload</button>
+            <button id="openAdminBtn" class="btn-accent" style="display:none;">⚙ Admin</button>
+
+            <div id="loggedOut" class="auth-inline">
+                <button id="openLoginBtn" class="btn-outline">Log in</button>
+            </div>
+
+            <div id="loggedIn" class="auth-inline" style="display:none;">
+                <div class="user-chip">
+                    <span class="avatar" id="userInitial"></span>
+                    <div class="user-text">
+                        <strong id="userName"></strong>
+                        <small id="userRole"></small>
+                    </div>
+                </div>
+                <button id="logoutBtn" class="btn-outline">Log out</button>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<section class="hero">
+    <h1>Find any course material</h1>
+    <p>Search naturally, in Turkish or English</p>
+
+    <div class="searchbar">
+        <input type="text" id="query" placeholder="e.g. programlama 2 vize">
+        <button id="searchBtn">Search</button>
+    </div>
+
+    <div class="filters">
+        <select id="typeFilter">
+            <option value="">All types</option>
+            <option value="MIDTERM">Midterm</option>
+            <option value="FINAL">Final</option>
+            <option value="QUIZ">Quiz</option>
+            <option value="HOMEWORK">Homework</option>
+            <option value="NOTE">Note</option>
+            <option value="SYLLABUS">Syllabus</option>
+            <option value="LAB">Lab</option>
+            <option value="PROJECT">Project</option>
+            <option value="OTHER">Other</option>
+        </select>
+
+        <select id="seasonFilter">
+            <option value="">All seasons</option>
+            <option value="FALL">Fall</option>
+            <option value="SPRING">Spring</option>
+            <option value="SUMMER">Summer</option>
+        </select>
+
+        <select id="yearFilter">
+            <option value="">All years</option>
+            <option value="2026">2026</option>
+            <option value="2025">2025</option>
+            <option value="2024">2024</option>
+        </select>
+    </div>
+</section>
+
+<main>
+    <div id="resultsMeta" class="results-meta"></div>
+    <div id="results" class="results"></div>
+</main>
+
+<div id="loginModal" class="modal-backdrop">
+    <div class="modal modal-sm">
+        <div class="modal-head">
+            <h2>Log in</h2>
+            <button class="modal-close" data-close="loginModal">&times;</button>
+        </div>
+        <div class="modal-body">
+            <label class="field">
+                <span>Email</span>
+                <input type="email" id="loginEmail" placeholder="you@university.edu">
+            </label>
+            <label class="field">
+                <span>Password</span>
+                <input type="password" id="loginPassword" placeholder="••••••••">
+            </label>
+        </div>
+        <div class="modal-foot">
+            <button class="btn-ghost" data-close="loginModal">Cancel</button>
+            <button id="loginBtn" class="btn-accent">Log in</button>
+        </div>
+    </div>
+</div>
+
+<div id="uploadModal" class="modal-backdrop">
+    <div class="modal">
+        <div class="modal-head">
+            <h2>Upload a file</h2>
+            <button class="modal-close" data-close="uploadModal">&times;</button>
+        </div>
+        <div class="modal-body">
+            <label class="field field-wide dropzone-field">
+                <span>File</span>
+                <input type="file" id="uploadFile">
+            </label>
+
+            <div class="field-row">
+                <label class="field">
+                    <span>Course ID</span>
+                    <input type="number" id="uploadCourseId" placeholder="e.g. 1">
+                </label>
+
+                <label class="field">
+                    <span>Type</span>
+                    <select id="uploadType">
+                        <option value="MIDTERM">Midterm</option>
+                        <option value="FINAL">Final</option>
+                        <option value="QUIZ">Quiz</option>
+                        <option value="HOMEWORK">Homework</option>
+                        <option value="NOTE">Note</option>
+                        <option value="SYLLABUS">Syllabus</option>
+                        <option value="LAB">Lab</option>
+                        <option value="PROJECT">Project</option>
+                        <option value="OTHER">Other</option>
+                    </select>
+                </label>
+            </div>
+
+            <div class="field-row">
+                <label class="field">
+                    <span>Year</span>
+                    <input type="number" id="uploadYear" value="2026">
+                </label>
+
+                <label class="field">
+                    <span>Season</span>
+                    <select id="uploadSeason">
+                        <option value="FALL">Fall</option>
+                        <option value="SPRING">Spring</option>
+                        <option value="SUMMER">Summer</option>
+                    </select>
+                </label>
+            </div>
+
+            <label class="field field-wide">
+                <span>Description <em>(optional)</em></span>
+                <input type="text" id="uploadDescription" placeholder="Short description">
+            </label>
+        </div>
+        <div class="modal-foot">
+            <button class="btn-ghost" data-close="uploadModal">Cancel</button>
+            <button id="uploadBtn" class="btn-accent">Upload</button>
+        </div>
+    </div>
+</div>
+
+<div id="adminModal" class="modal-backdrop">
+    <div class="modal modal-lg">
+        <div class="modal-head">
+            <h2>Admin — Manage System</h2>
+            <button class="modal-close" data-close="adminModal">&times;</button>
+        </div>
+
+        <div class="admin-tabs">
+            <button class="tab-btn active" data-tab="faculty">Faculty</button>
+            <button class="tab-btn" data-tab="department">Department</button>
+            <button class="tab-btn" data-tab="course">Course</button>
+            <button class="tab-btn" data-tab="lecturer">Lecturer</button>
+            <button class="tab-btn" data-tab="student">Student</button>
+            <button class="tab-btn" data-tab="alias">Alias</button>
+        </div>
+
+        <div class="modal-body">
+
+            <div class="tab-pane active" id="tab-faculty">
+                <label class="field"><span>Faculty name</span>
+                    <input type="text" id="facName" placeholder="e.g. Faculty of Engineering"></label>
+                <button class="btn-accent" id="createFacBtn">Create faculty</button>
+                <div class="existing" id="listFaculties"></div>
+            </div>
+
+            <div class="tab-pane" id="tab-department">
+                <label class="field"><span>Faculty</span>
+                    <select id="depFaculty"></select></label>
+                <div class="field-row">
+                    <label class="field"><span>Code</span>
+                        <input type="text" id="depCode" placeholder="e.g. CENG"></label>
+                    <label class="field"><span>Name</span>
+                        <input type="text" id="depName" placeholder="e.g. Computer Engineering"></label>
+                </div>
+                <button class="btn-accent" id="createDepBtn">Create department</button>
+                <div class="existing" id="listDepartments"></div>
+            </div>
+
+            <div class="tab-pane" id="tab-course">
+                <label class="field"><span>Department</span>
+                    <select id="crsDepartment"></select></label>
+                <div class="field-row">
+                    <label class="field"><span>Code</span>
+                        <input type="text" id="crsCode" placeholder="e.g. BIL201"></label>
+                    <label class="field"><span>Name</span>
+                        <input type="text" id="crsName" placeholder="e.g. Computer Programming II"></label>
+                </div>
+                <label class="field"><span>Description <em>(optional)</em></span>
+                    <input type="text" id="crsDesc" placeholder="Short description"></label>
+                <button class="btn-accent" id="createCrsBtn">Create course</button>
+                <div class="existing" id="listCourses"></div>
+            </div>
+
+            <div class="tab-pane" id="tab-lecturer">
+                <label class="field"><span>Department</span>
+                    <select id="lecDepartment"></select></label>
+                <div class="field-row">
+                    <label class="field"><span>Title</span>
+                        <select id="lecTitle">
+                            <option value="PROFESSOR">Professor</option>
+                            <option value="ASSOCIATE_PROFESSOR">Associate Professor</option>
+                            <option value="ASSISTANT_PROFESSOR">Assistant Professor</option>
+                            <option value="LECTURER">Lecturer</option>
+                            <option value="RESEARCH_ASSISTANT">Research Assistant</option>
+                            <option value="INSTRUCTOR">Instructor</option>
+                        </select></label>
+                </div>
+                <div class="field-row">
+                    <label class="field"><span>First name</span>
+                        <input type="text" id="lecFirst"></label>
+                    <label class="field"><span>Last name</span>
+                        <input type="text" id="lecLast"></label>
+                </div>
+                <label class="field"><span>Email</span>
+                    <input type="email" id="lecEmail" placeholder="name@university.edu"></label>
+                <label class="field"><span>Password</span>
+                    <input type="text" id="lecPassword" placeholder="initial password"></label>
+                <button class="btn-accent" id="createLecBtn">Create lecturer</button>
+                <div class="existing" id="listLecturers"></div>
+            </div>
+
+            <div class="tab-pane" id="tab-student">
+                <label class="field"><span>Department</span>
+                    <select id="stuDepartment"></select></label>
+                <div class="field-row">
+                    <label class="field"><span>Student number</span>
+                        <input type="text" id="stuNumber" placeholder="e.g. 2026001"></label>
+                </div>
+                <div class="field-row">
+                    <label class="field"><span>First name</span>
+                        <input type="text" id="stuFirst"></label>
+                    <label class="field"><span>Last name</span>
+                        <input type="text" id="stuLast"></label>
+                </div>
+                <label class="field"><span>Email</span>
+                    <input type="email" id="stuEmail" placeholder="name@university.edu"></label>
+                <label class="field"><span>Password</span>
+                    <input type="text" id="stuPassword" placeholder="initial password"></label>
+                <button class="btn-accent" id="createStuBtn">Create student</button>
+                <div class="existing" id="listStudents"></div>
+            </div>
+
+            <div class="tab-pane" id="tab-alias">
+                <label class="field"><span>Course</span>
+                    <select id="aliasCourse"></select></label>
+                <label class="field"><span>Alias</span>
+                    <input type="text" id="aliasText" placeholder="e.g. BP2"></label>
+                <button class="btn-accent" id="createAliasBtn">Add alias</button>
+                <p class="hint">Aliases are abbreviations students might search (e.g. “BP2” for Computer Programming II).</p>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<div id="toasts" class="toasts"></div>
+
+<script src="app.js"></script>
+</body>
+</html>

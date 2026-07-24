@@ -1,0 +1,12 @@
+spring.application.name=archmaxim
+
+spring.datasource.url=jdbc:postgresql://localhost:5432/archmaxim_db
+spring.datasource.username=postgres
+spring.datasource.password=YOUR_DB_PASSWORD
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=true
+springdoc.swagger-ui.enabled=true
+springdoc.api-docs.enabled=true
+archmaxim.storage.location=C:/Users/nuriy/archmaxim-storage
+archmaxim.embedding.url=http://127.0.0.1:8000
+archmaxim.jwt.secret=YOUR_JWT_SECRET
