@@ -1,11 +1,11 @@
 # Archmaxim: Smart University File Archive
 
-A university file archive that stores course materials by their **relationships** (course, lecturer, type, term) rather than in fixed folders, and lets users find them through **natural-language semantic search** in Turkish or English.
+A university file archive that stores course materials by their **relationships** (course, lecturer, type, term) rather than in fixed folders and lets users find them through **natural-language semantic search** in Turkish or English.
 
 ## Features
 
 - **Semantic search**: Find files by meaning, not exact keywords, across languages (e.g. "programlama 2 vize" finds "Computer Programming II, Midterm").
-- **Hybrid query understanding**: Combines semantic embeddings, fuzzy matching for typos, and course abbreviation aliases (e.g. "BP2").
+- **Hybrid query understanding**: Combines semantic embeddings, fuzzy matching for typos and course abbreviation aliases (e.g. "BP2").
 - **Search filters**: Narrow by year, season, file type and department.
 - **Authentication & roles**: JWT-based login with three roles: admin, lecturer, student.
 - **Role-based access**: Admins manage the system, lecturers upload files, students search and download.
@@ -22,7 +22,7 @@ Four services, orchestrated with Docker Compose:
 | **db** | PostgreSQL 17 + pgvector | Data storage and vector similarity search |
 | **frontend** | HTML / CSS / JavaScript | Web interface |
 
-The backend calls the embedding service to turn queries and files into vectors, stores them in PostgreSQL via the pgvector extension, and ranks results by cosine similarity.
+The backend calls the embedding service to turn queries and files into vectors, stores them in PostgreSQL via the pgvector extension and ranks results by cosine similarity.
 
 ## Running the project
 
@@ -46,7 +46,7 @@ On first run, an admin account is created automatically:
 - **Email:** admin@archmaxim.edu
 - **Password:** admin123
 
-Use it to create faculties, departments, courses, and user accounts.
+Use it to create faculties, departments, courses and user accounts.
 
 ## Project structure
 ```
