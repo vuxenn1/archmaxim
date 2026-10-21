@@ -1,42 +1,31 @@
 package com.archmaxim.entity;
 
-import jakarta.persistence.*;
-import java.time.LocalDateTime;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.ManyToOne;
 
 @Entity
-@Table(uniqueConstraints = @UniqueConstraint(columnNames = {"course_id", "lecturer_id"}))
-public class CourseLecturer {
+public class CourseLecturer extends BaseEntity {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     private Course course;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     private Lecturer lecturer;
 
-    private LocalDateTime createdAt;
-
-    public CourseLecturer() {}
+    protected CourseLecturer() {
+    }
 
     public CourseLecturer(Course course, Lecturer lecturer) {
         this.course = course;
         this.lecturer = lecturer;
     }
 
-    @PrePersist
-    protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
+    public Course getCourse() {
+        return course;
     }
 
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
-    public Course getCourse() { return course; }
-    public void setCourse(Course course) { this.course = course; }
-    public Lecturer getLecturer() { return lecturer; }
-    public void setLecturer(Lecturer lecturer) { this.lecturer = lecturer; }
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public Lecturer getLecturer() {
+        return lecturer;
+    }
 }

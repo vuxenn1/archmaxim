@@ -1,240 +1,203 @@
 package com.archmaxim.service;
 
-import com.archmaxim.entity.*;
-import com.archmaxim.repository.CourseAliasRepository;
+import com.archmaxim.config.ArchmaximProperties;
+import com.archmaxim.dto.FileDto;
+import com.archmaxim.dto.PageResponse;
+import com.archmaxim.dto.UploadResponse;
+import com.archmaxim.entity.Course;
+import com.archmaxim.entity.FileRecord;
+import com.archmaxim.entity.FileType;
+import com.archmaxim.entity.Lecturer;
+import com.archmaxim.entity.Role;
+import com.archmaxim.entity.Season;
+import com.archmaxim.exception.BadRequestException;
+import com.archmaxim.exception.ForbiddenException;
+import com.archmaxim.exception.NotFoundException;
+import com.archmaxim.repository.CourseLecturerRepository;
 import com.archmaxim.repository.CourseRepository;
-import com.archmaxim.repository.FileRepository;
+import com.archmaxim.repository.FileRecordRepository;
 import com.archmaxim.repository.LecturerRepository;
-import org.apache.commons.text.similarity.JaroWinklerSimilarity;
+import com.archmaxim.search.IndexingService;
+import com.archmaxim.security.AuthenticatedUser;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.http.InvalidMediaTypeException;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.jdbc.core.JdbcTemplate;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.UUID;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Clock;
+import java.time.Year;
+import java.util.Locale;
+import java.util.Set;
 
 @Service
 public class FileService {
 
-    private final FileRepository fileRepository;
+    private static final Logger log = LoggerFactory.getLogger(FileService.class);
+    private static final int FIRST_YEAR = 2000;
+    private static final int MAX_NAME_LENGTH = 255;
+
+    private final FileRecordRepository fileRepository;
     private final CourseRepository courseRepository;
     private final LecturerRepository lecturerRepository;
-    private final CourseAliasRepository courseAliasRepository;
+    private final CourseLecturerRepository assignmentRepository;
+    private final FileStorageService storage;
+    private final IndexingService indexingService;
+    private final TransactionTemplate transaction;
+    private final Set<String> allowedExtensions;
+    private final Clock clock;
 
-    private final FileStorageService fileStorageService;
-
-    private final JdbcTemplate jdbcTemplate;
-    private final EmbeddingClient embeddingClient;
-
-    public FileService(FileRepository fileRepository,
+    public FileService(FileRecordRepository fileRepository,
                        CourseRepository courseRepository,
                        LecturerRepository lecturerRepository,
-                       CourseAliasRepository courseAliasRepository,
-                       FileStorageService fileStorageService,
-                       EmbeddingClient embeddingClient,
-                       JdbcTemplate jdbcTemplate) {
+                       CourseLecturerRepository assignmentRepository,
+                       FileStorageService storage,
+                       IndexingService indexingService,
+                       PlatformTransactionManager transactionManager,
+                       ArchmaximProperties properties,
+                       Clock clock) {
         this.fileRepository = fileRepository;
         this.courseRepository = courseRepository;
         this.lecturerRepository = lecturerRepository;
-        this.courseAliasRepository = courseAliasRepository;
-        this.fileStorageService = fileStorageService;
-        this.embeddingClient = embeddingClient;
-        this.jdbcTemplate = jdbcTemplate;
+        this.assignmentRepository = assignmentRepository;
+        this.storage = storage;
+        this.indexingService = indexingService;
+        this.transaction = new TransactionTemplate(transactionManager);
+        this.allowedExtensions = Set.copyOf(properties.upload().allowedExtensions());
+        this.clock = clock;
     }
 
-    public List<File> getAllFiles() {
-        return fileRepository.findAll();
+    @Transactional(readOnly = true)
+    public PageResponse<FileDto> findPage(int page, int size) {
+        PageRequest request = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt", "id"));
+        return PageResponse.of(fileRepository.findByActiveTrue(request), FileDto::from);
     }
 
-    public File createFile(String originalName, FileType type, Long courseId, Long uploadedById, Integer year, Season season, String description) {
-        Course course = courseRepository.findById(courseId)
-                .orElseThrow(() -> new RuntimeException("Course not found: " + courseId));
-        Lecturer uploadedBy = lecturerRepository.findById(uploadedById)
-                .orElseThrow(() -> new RuntimeException("Lecturer not found: " + uploadedById));
-
-        String uuid = UUID.randomUUID().toString();
-
-        File file = new File(uuid, originalName, type, course, uploadedBy, year, season, null, null, description);
-        return fileRepository.save(file);
-    }
-
-    public File uploadFile(MultipartFile multipartFile, FileType type, Long courseId, String uploaderEmail,
-                           Integer year, Season season, String description) {
-        Course course = courseRepository.findById(courseId)
-                .orElseThrow(() -> new RuntimeException("Course not found: " + courseId));
-        Lecturer uploadedBy = lecturerRepository.findByEmail(uploaderEmail)
-                .orElseThrow(() -> new RuntimeException("Lecturer not found: " + uploaderEmail));
-
-        String uuid = fileStorageService.store(multipartFile);
-
-        File file = new File(uuid, multipartFile.getOriginalFilename(), type, course, uploadedBy,
-                year, season, multipartFile.getSize(), multipartFile.getContentType(), description);
-
-        File saved = fileRepository.save(file);
-        indexFile(saved);
-        return saved;
-    }
-
-    private String buildSearchableText(File file) {
-        return String.join(" ",
-                file.getCourse().getName(),
-                file.getCourse().getCode(),
-                file.getType().name(),
-                turkishForType(file.getType()),
-                file.getUploadedBy().getFirstName(),
-                file.getUploadedBy().getLastName(),
-                String.valueOf(file.getYear()),
-                file.getSeason().name(),
-                turkishForSeason(file.getSeason())
-        );
-    }
-
-    public void indexFile(File file) {
-        String text = buildSearchableText(file);
-        float[] vector = embeddingClient.embed(text);
-
-        String vectorLiteral = Arrays.toString(vector);   // "[0.12, -0.83, ...]"
-
-        jdbcTemplate.update(
-                "UPDATE file_record SET embedding = ?::vector WHERE id = ?",
-                vectorLiteral,
-                file.getId()
-        );
-    }
-
-    public int indexAllFiles() {
-        List<File> files = fileRepository.findAll();
-        for (File file : files) {
-            indexFile(file);
+    /**
+     * Saves the file and its metadata, then tries to index it. A failed save removes
+     * the stored content again; a failed index only means search picks it up later.
+     */
+    public UploadResponse upload(MultipartFile file, FileType type, Long courseId, int year, Season season,
+                                 String description, AuthenticatedUser user) {
+        if (file.isEmpty()) {
+            throw new BadRequestException("The file is empty.");
         }
-        return files.size();
-    }
-
-    public List<File> search(String query, int limit,
-                             Integer year, Season season, FileType type, Long departmentId) {
-
-        // Enrich the query: aliases first (exact codes), then fuzzy (typos)
-        String enrichedQuery = query;
-
-        String aliasMatch = findAliasMatch(query);
-        if (aliasMatch != null) {
-            enrichedQuery = query + " " + aliasMatch;
-        } else {
-            String courseMatch = findBestCourseMatch(query);
-            if (courseMatch != null) {
-                enrichedQuery = query + " " + courseMatch;
-            }
+        String originalName = cleanFilename(file.getOriginalFilename());
+        String extension = extensionOf(originalName);
+        if (!allowedExtensions.contains(extension)) {
+            throw new BadRequestException(extension.isEmpty()
+                    ? "Files without an extension are not allowed."
+                    : "Files of type ." + extension + " are not allowed.");
+        }
+        int lastYear = Year.now(clock).getValue() + 1;
+        if (year < FIRST_YEAR || year > lastYear) {
+            throw new BadRequestException("The year must be between " + FIRST_YEAR + " and " + lastYear + ".");
         }
 
-        float[] queryVector = embeddingClient.embed(enrichedQuery);
-        String vectorLiteral = Arrays.toString(queryVector);
-
-        StringBuilder sql = new StringBuilder(
-                "SELECT f.id FROM file_record f " +
-                        "JOIN course c ON f.course_id = c.id " +
-                        "WHERE f.embedding IS NOT NULL AND f.is_active = true " +
-                        "AND (f.embedding <=> ?::vector) < ? ");
-
-        List<Object> params = new ArrayList<>();
-        params.add(vectorLiteral);   // for the threshold check
-        params.add(0.6);             // threshold value, will be tuned
-
-        if (year != null) {
-            sql.append("AND f.year = ? ");
-            params.add(year);
+        Course course = courseRepository.findById(courseId).orElseThrow(() -> NotFoundException.of("Course", courseId));
+        if (!assignmentRepository.existsByCourseIdAndLecturerId(courseId, user.id())) {
+            throw new ForbiddenException("You are not assigned to " + course.getCode() + ".");
         }
-        if (season != null) {
-            sql.append("AND f.season = ? ");
-            params.add(season.name());
-        }
-        if (type != null) {
-            sql.append("AND f.type = ? ");
-            params.add(type.name());
-        }
-        if (departmentId != null) {
-            sql.append("AND c.department_id = ? ");
-            params.add(departmentId);
-        }
+        Lecturer lecturer = lecturerRepository.findById(user.id())
+                .orElseThrow(() -> new ForbiddenException("Your lecturer account no longer exists."));
 
-        sql.append("ORDER BY f.embedding <=> ?::vector LIMIT ?");
-        params.add(vectorLiteral);
-        params.add(limit);
-
-        List<Long> ids = jdbcTemplate.queryForList(sql.toString(), Long.class, params.toArray());
-
-        List<File> results = new ArrayList<>();
-        for (Long id : ids) {
-            fileRepository.findById(id).ifPresent(results::add);
+        String storedName = storage.store(file);
+        FileRecord saved;
+        try {
+            saved = transaction.execute(status -> fileRepository.save(new FileRecord(storedName, originalName, type,
+                    course, lecturer, year, season, file.getSize(), file.getContentType(), blankToNull(description))));
+        } catch (RuntimeException e) {
+            storage.deleteQuietly(storedName);
+            throw e;
         }
-        return results;
+        log.info("{} uploaded file {} ({}) to {}", user.email(), saved.getId(), originalName, course.getCode());
+
+        boolean indexed = indexingService.indexNow(saved.getId());
+        FileRecord detailed = fileRepository.findWithDetailsById(saved.getId()).orElseThrow();
+        return new UploadResponse(FileDto.from(detailed), indexed);
     }
 
-    private String turkishForType(FileType type) {
-        return switch (type) {
-            case MIDTERM  -> "vize ara sınav";
-            case FINAL    -> "final final sınavı";
-            case QUIZ     -> "quiz küçük sınav";
-            case HOMEWORK -> "ödev";
-            case NOTE     -> "ders notu notlar";
-            case SYLLABUS -> "izlence müfredat";
-            case LAB      -> "laboratuvar lab";
-            case PROJECT  -> "proje";
-            case OTHER    -> "diğer";
-        };
-    }
-
-    private String turkishForSeason(Season season) {
-        return switch (season) {
-            case FALL   -> "güz sonbahar";
-            case SPRING -> "bahar ilkbahar";
-            case SUMMER -> "yaz";
-        };
-    }
-
-    public File getFileForDownload(Long id) {
-        File file = fileRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("File not found: " + id));
-        file.setDownloadCount(file.getDownloadCount() + 1);
-        return fileRepository.save(file);
-    }
-
-    private String findBestCourseMatch(String query) {
-        JaroWinklerSimilarity similarity = new JaroWinklerSimilarity();
-        String queryLower = query.toLowerCase();
-
-        String bestMatch = null;
-        double bestScore = 0.0;
-
-        for (Course course : courseRepository.findAll()) {
-            // compare against both the course name and its code
-            double nameScore = similarity.apply(queryLower, course.getName().toLowerCase());
-            double codeScore = similarity.apply(queryLower, course.getCode().toLowerCase());
-            double score = Math.max(nameScore, codeScore);
-
-            if (score > bestScore) {
-                bestScore = score;
-                bestMatch = course.getName();
-            }
+    /**
+     * Returns the file content and counts the download. The count only goes up
+     * once the content is known to be readable.
+     */
+    public FileDownload download(Long id) {
+        FileRecord file = fileRepository.findByIdAndActiveTrue(id).orElseThrow(() -> NotFoundException.of("File", id));
+        Path path = storage.resolve(file.getUuid());
+        if (!Files.isReadable(path)) {
+            log.warn("Content of file {} is missing at {}", id, path);
+            throw new NotFoundException("The content of file " + id + " is missing.");
         }
-
-        // only accept the match if it's confidently close
-        if (bestScore >= 0.7) {
-            return bestMatch;
+        long size;
+        try {
+            size = Files.size(path);
+        } catch (IOException e) {
+            throw new UncheckedIOException("Could not read file " + id, e);
         }
-        return null;
+        fileRepository.incrementDownloadCount(id);
+        return new FileDownload(new FileSystemResource(path), file.getOriginalName(), mediaTypeOf(file), size);
     }
 
-    private String findAliasMatch(String query) {
-        String queryLower = query.toLowerCase();
-        for (CourseAlias alias : courseAliasRepository.findAll()) {
-            // check if the query contains this alias as a whole word
-            String aliasLower = alias.getAlias().toLowerCase();
-            if (queryLower.contains(aliasLower)) {
-                return alias.getCourse().getName();
-            }
+    @Transactional
+    public void deactivate(Long id, AuthenticatedUser user) {
+        FileRecord file = fileRepository.findByIdAndActiveTrue(id).orElseThrow(() -> NotFoundException.of("File", id));
+        boolean owner = user.is(Role.LECTURER) && file.getUploadedBy().getId().equals(user.id());
+        if (!user.is(Role.ADMIN) && !owner) {
+            throw new ForbiddenException("You can only remove files you uploaded.");
         }
-        return null;
+        file.deactivate();
+        log.info("{} removed file {}", user.email(), id);
+    }
+
+    /**
+     * Keeps only the last path segment (some browsers send full client paths)
+     * and drops control characters.
+     */
+    static String cleanFilename(String filename) {
+        if (filename == null) {
+            return "file";
+        }
+        String name = filename.substring(Math.max(filename.lastIndexOf('/'), filename.lastIndexOf('\\')) + 1);
+        name = name.replaceAll("\\p{Cntrl}", "").strip();
+        if (name.isEmpty() || name.equals(".") || name.equals("..")) {
+            return "file";
+        }
+        if (name.length() > MAX_NAME_LENGTH) {
+            String extension = extensionOf(name);
+            int keep = MAX_NAME_LENGTH - (extension.isEmpty() ? 0 : extension.length() + 1);
+            name = name.substring(0, keep) + (extension.isEmpty() ? "" : "." + extension);
+        }
+        return name;
+    }
+
+    static String extensionOf(String filename) {
+        int dot = filename.lastIndexOf('.');
+        return dot > 0 && dot < filename.length() - 1 ? filename.substring(dot + 1).toLowerCase(Locale.ROOT) : "";
+    }
+
+    private static MediaType mediaTypeOf(FileRecord file) {
+        if (file.getMimeType() == null || file.getMimeType().isBlank()) {
+            return MediaType.APPLICATION_OCTET_STREAM;
+        }
+        try {
+            return MediaType.parseMediaType(file.getMimeType());
+        } catch (InvalidMediaTypeException e) {
+            return MediaType.APPLICATION_OCTET_STREAM;
+        }
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 }

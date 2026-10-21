@@ -1,41 +1,53 @@
 package com.archmaxim.service;
 
+import com.archmaxim.dto.LecturerDto;
+import com.archmaxim.dto.LecturerRequest;
+import com.archmaxim.dto.PageResponse;
 import com.archmaxim.entity.Department;
 import com.archmaxim.entity.Lecturer;
-import com.archmaxim.entity.LecturerTitle;
+import com.archmaxim.exception.NotFoundException;
 import com.archmaxim.repository.DepartmentRepository;
 import com.archmaxim.repository.LecturerRepository;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-
-import java.util.List;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class LecturerService {
 
+    private static final Sort BY_NAME = Sort.by("lastName", "firstName", "id");
+
     private final LecturerRepository lecturerRepository;
     private final DepartmentRepository departmentRepository;
-
+    private final AccountDirectory accountDirectory;
     private final PasswordEncoder passwordEncoder;
 
-    public LecturerService(LecturerRepository lecturerRepository, DepartmentRepository departmentRepository,  PasswordEncoder passwordEncoder) {
+    public LecturerService(LecturerRepository lecturerRepository,
+                           DepartmentRepository departmentRepository,
+                           AccountDirectory accountDirectory,
+                           PasswordEncoder passwordEncoder) {
         this.lecturerRepository = lecturerRepository;
         this.departmentRepository = departmentRepository;
+        this.accountDirectory = accountDirectory;
         this.passwordEncoder = passwordEncoder;
     }
 
-    public List<Lecturer> getAllLecturers() {
-        return lecturerRepository.findAll();
+    @Transactional(readOnly = true)
+    public PageResponse<LecturerDto> findPage(int page, int size) {
+        return PageResponse.of(lecturerRepository.findAll(PageRequest.of(page, size, BY_NAME)), LecturerDto::from);
     }
 
-    public Lecturer createLecturer(LecturerTitle title, String firstName, String lastName,
-                                   String email, String password, Long departmentId) {
-        Department department = departmentRepository.findById(departmentId)
-                .orElseThrow(() -> new RuntimeException("Department not found: " + departmentId));
+    @Transactional
+    public LecturerDto create(LecturerRequest request) {
+        String email = AccountDirectory.normalizeEmail(request.email());
+        accountDirectory.requireEmailAvailable(email);
+        Department department = departmentRepository.findById(request.departmentId())
+                .orElseThrow(() -> NotFoundException.of("Department", request.departmentId()));
 
-        String hashedPassword = passwordEncoder.encode(password);
-
-        return lecturerRepository.save(
-                new Lecturer(title, firstName, lastName, email, hashedPassword, department));
+        Lecturer lecturer = new Lecturer(request.title(), request.firstName().trim(), request.lastName().trim(),
+                email, passwordEncoder.encode(request.password()), department);
+        return LecturerDto.from(lecturerRepository.save(lecturer));
     }
 }

@@ -1,6 +1,41 @@
-**/target/
-**/venv/
-**/__pycache__/
-**/.idea/
-**/node_modules/
-**/.cache/
+# Local configuration and secrets
+.env
+archmaxim/src/main/resources/application-local.properties
+
+# Uploaded files when running outside Docker
+storage/
+
+# Java / Maven
+target/
+HELP.md
+
+# Python
+venv/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.cache/
+
+# IDEs
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+.classpath
+.project
+.settings/
+.factorypath
+.apt_generated
+.sts4-cache/
+.springBeans
+nbproject/private/
+nbbuild/
+nbdist/
+.nb-gradle/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini

@@ -1,0 +1,5 @@
+# Enough to run test_main.py; the model is faked, so torch is not needed.
+fastapi==0.157.0
+pydantic==2.14.1
+httpx2==2.16.0
+pytest==9.1.1

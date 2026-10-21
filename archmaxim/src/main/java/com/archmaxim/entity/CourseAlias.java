@@ -1,40 +1,40 @@
 package com.archmaxim.entity;
 
-import jakarta.persistence.*;
-import java.time.LocalDateTime;
+import com.archmaxim.search.TextNormalizer;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.ManyToOne;
 
 @Entity
-public class CourseAlias {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+public class CourseAlias extends BaseEntity {
 
     private String alias;
 
-    @ManyToOne
+    // Stored so the database enforces uniqueness the same way search compares
+    // aliases: case-insensitive and with Turkish characters folded.
+    private String normalizedAlias;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     private Course course;
 
-    private LocalDateTime createdAt;
-
-    public CourseAlias() {}
+    protected CourseAlias() {
+    }
 
     public CourseAlias(String alias, Course course) {
         this.alias = alias;
+        this.normalizedAlias = TextNormalizer.compact(alias);
         this.course = course;
     }
 
-    @PrePersist
-    protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
+    public String getAlias() {
+        return alias;
     }
 
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
-    public String getAlias() { return alias; }
-    public void setAlias(String alias) { this.alias = alias; }
-    public Course getCourse() { return course; }
-    public void setCourse(Course course) { this.course = course; }
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public String getNormalizedAlias() {
+        return normalizedAlias;
+    }
+
+    public Course getCourse() {
+        return course;
+    }
 }

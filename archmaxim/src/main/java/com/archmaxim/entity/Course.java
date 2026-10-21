@@ -1,46 +1,63 @@
 package com.archmaxim.entity;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderBy;
 
-import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 @Entity
-@Table(name = "course", uniqueConstraints = @UniqueConstraint(columnNames = {"department_id", "code"}))
-public class Course {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+public class Course extends BaseEntity {
+
     private String code;
     private String name;
-    @ManyToOne
-    private Department department;
-    private String description;
-    private LocalDateTime createdAt;
 
-    public Course() {}
+    @Column(length = 1000)
+    private String description;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    private Department department;
+
+    @OneToMany(mappedBy = "course")
+    @OrderBy("alias")
+    private List<CourseAlias> aliases = new ArrayList<>();
+
+    protected Course() {
+    }
 
     public Course(String code, String name, Department department, String description) {
+        update(code, name, department, description);
+    }
+
+    public void update(String code, String name, Department department, String description) {
         this.code = code;
         this.name = name;
         this.department = department;
         this.description = description;
     }
 
-    @PrePersist
-    protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
+    public String getCode() {
+        return code;
     }
 
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
-    public String getCode() { return code; }
-    public void setCode(String code) { this.code = code; }
-    public String getName() { return name; }
-    public void setName(String name) { this.name = name; }
-    public Department getDepartment() { return department; }
-    public void setDepartment(Department department) { this.department = department; }
-    public String getDescription() { return description; }
-    public void setDescription(String description) { this.description = description; }
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public String getName() {
+        return name;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public Department getDepartment() {
+        return department;
+    }
+
+    public List<CourseAlias> getAliases() {
+        return Collections.unmodifiableList(aliases);
+    }
 }

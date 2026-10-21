@@ -1,3 +1,7 @@
-fastapi
-uvicorn
-sentence-transformers
+# torch is installed from the CPU-only index first (see Dockerfile); this pin keeps the version in one place.
+torch==2.14.1
+sentence-transformers==6.2.0
+transformers==5.20.2
+fastapi==0.157.0
+pydantic==2.14.1
+uvicorn==0.54.0

@@ -3,288 +3,460 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Archmaxim: Smart University File Archive</title>
+    <title>Archmaxim</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231657b5'/%3E%3Ctext x='16' y='22.5' font-family='system-ui,sans-serif' font-size='18' font-weight='700' fill='white' text-anchor='middle'%3EA%3C/text%3E%3C/svg%3E">
     <link rel="stylesheet" href="style.css">
+    <script src="app.js" defer></script>
 </head>
 <body>
 
-<nav class="topbar">
+<header class="topbar">
     <div class="topbar-inner">
-        <div class="logo">
-            <span class="logo-mark">A</span>
+        <a class="logo" href="./">
+            <span class="logo-mark" aria-hidden="true">A</span>
             <span class="logo-text">Archmaxim</span>
-        </div>
+        </a>
 
         <div class="topbar-actions">
-            <button id="openUploadBtn" class="btn-accent" style="display:none;">+ Upload</button>
-
-            <button id="openUploadBtn" class="btn-accent" style="display:none;">+ Upload</button>
-            <button id="openAdminBtn" class="btn-accent" style="display:none;">⚙ Admin</button>
+            <button type="button" id="openUploadBtn" class="btn-accent" hidden>+ Upload</button>
+            <button type="button" id="openAdminBtn" class="btn-outline" hidden>Admin</button>
 
             <div id="loggedOut" class="auth-inline">
-                <button id="openLoginBtn" class="btn-outline">Log in</button>
+                <button type="button" id="openLoginBtn" class="btn-outline">Log in</button>
             </div>
 
-            <div id="loggedIn" class="auth-inline" style="display:none;">
+            <div id="loggedIn" class="auth-inline" hidden>
                 <div class="user-chip">
-                    <span class="avatar" id="userInitial"></span>
+                    <span class="avatar" id="userInitial" aria-hidden="true"></span>
                     <div class="user-text">
                         <strong id="userName"></strong>
                         <small id="userRole"></small>
                     </div>
                 </div>
-                <button id="logoutBtn" class="btn-outline">Log out</button>
+                <button type="button" id="openPasswordBtn" class="btn-ghost">Password</button>
+                <button type="button" id="logoutBtn" class="btn-outline">Log out</button>
             </div>
         </div>
     </div>
-</nav>
+</header>
 
 <section class="hero">
     <h1>Find any course material</h1>
     <p>Search naturally, in Turkish or English</p>
 
-    <div class="searchbar">
-        <input type="text" id="query" placeholder="e.g. programlama 2 vize">
-        <button id="searchBtn">Search</button>
-    </div>
+    <form id="searchForm" class="searchbar" role="search">
+        <label for="query" class="visually-hidden">Search the archive</label>
+        <input type="search" id="query" name="query" placeholder="e.g. programlama 2 vize"
+               maxlength="300" autocomplete="off">
+        <button type="submit" id="searchBtn">Search</button>
+    </form>
 
     <div class="filters">
-        <select id="typeFilter">
-            <option value="">All types</option>
-            <option value="MIDTERM">Midterm</option>
-            <option value="FINAL">Final</option>
-            <option value="QUIZ">Quiz</option>
-            <option value="HOMEWORK">Homework</option>
-            <option value="NOTE">Note</option>
-            <option value="SYLLABUS">Syllabus</option>
-            <option value="LAB">Lab</option>
-            <option value="PROJECT">Project</option>
-            <option value="OTHER">Other</option>
-        </select>
+        <label for="typeFilter" class="visually-hidden">File type</label>
+        <select id="typeFilter"></select>
 
-        <select id="seasonFilter">
-            <option value="">All seasons</option>
-            <option value="FALL">Fall</option>
-            <option value="SPRING">Spring</option>
-            <option value="SUMMER">Summer</option>
-        </select>
+        <label for="seasonFilter" class="visually-hidden">Season</label>
+        <select id="seasonFilter"></select>
 
-        <select id="yearFilter">
-            <option value="">All years</option>
-            <option value="2026">2026</option>
-            <option value="2025">2025</option>
-            <option value="2024">2024</option>
-        </select>
+        <label for="yearFilter" class="visually-hidden">Year</label>
+        <select id="yearFilter"></select>
+
+        <label for="departmentFilter" class="visually-hidden">Department</label>
+        <select id="departmentFilter" hidden></select>
+
+        <label class="check" id="mineToggle" hidden>
+            <input type="checkbox" id="mineFilter">
+            <span>My courses</span>
+        </label>
     </div>
+
+    <p id="loginNote" class="login-note">Log in to search the archive.</p>
 </section>
 
 <main>
-    <div id="resultsMeta" class="results-meta"></div>
+    <p id="resultsMeta" class="results-meta" aria-live="polite"></p>
     <div id="results" class="results"></div>
 </main>
 
 <div id="loginModal" class="modal-backdrop">
-    <div class="modal modal-sm">
+    <div class="modal modal-sm" role="dialog" aria-modal="true" aria-labelledby="loginTitle" tabindex="-1">
         <div class="modal-head">
-            <h2>Log in</h2>
-            <button class="modal-close" data-close="loginModal">&times;</button>
+            <h2 id="loginTitle">Log in</h2>
+            <button type="button" class="modal-close" data-close aria-label="Close">&times;</button>
         </div>
-        <div class="modal-body">
-            <label class="field">
-                <span>Email</span>
-                <input type="email" id="loginEmail" placeholder="you@university.edu">
-            </label>
-            <label class="field">
-                <span>Password</span>
-                <input type="password" id="loginPassword" placeholder="••••••••">
-            </label>
-        </div>
-        <div class="modal-foot">
-            <button class="btn-ghost" data-close="loginModal">Cancel</button>
-            <button id="loginBtn" class="btn-accent">Log in</button>
-        </div>
+        <form id="loginForm">
+            <div class="modal-body">
+                <label class="field">
+                    <span>Email</span>
+                    <input type="email" name="email" autocomplete="username" maxlength="254"
+                           placeholder="you@university.edu" required>
+                </label>
+                <label class="field">
+                    <span>Password</span>
+                    <input type="password" name="password" autocomplete="current-password" maxlength="72" required>
+                </label>
+            </div>
+            <div class="modal-foot">
+                <button type="button" class="btn-ghost" data-close>Cancel</button>
+                <button type="submit" class="btn-accent">Log in</button>
+            </div>
+        </form>
     </div>
 </div>
 
 <div id="uploadModal" class="modal-backdrop">
-    <div class="modal">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="uploadTitle" tabindex="-1">
         <div class="modal-head">
-            <h2>Upload a file</h2>
-            <button class="modal-close" data-close="uploadModal">&times;</button>
+            <h2 id="uploadTitle">Upload a file</h2>
+            <button type="button" class="modal-close" data-close aria-label="Close">&times;</button>
         </div>
-        <div class="modal-body">
-            <label class="field field-wide dropzone-field">
-                <span>File</span>
-                <input type="file" id="uploadFile">
-            </label>
-
-            <div class="field-row">
-                <label class="field">
-                    <span>Course ID</span>
-                    <input type="number" id="uploadCourseId" placeholder="e.g. 1">
+        <form id="uploadForm">
+            <div class="modal-body">
+                <label class="field dropzone-field">
+                    <span>File</span>
+                    <input type="file" name="file" required>
                 </label>
 
                 <label class="field">
-                    <span>Type</span>
-                    <select id="uploadType">
-                        <option value="MIDTERM">Midterm</option>
-                        <option value="FINAL">Final</option>
-                        <option value="QUIZ">Quiz</option>
-                        <option value="HOMEWORK">Homework</option>
-                        <option value="NOTE">Note</option>
-                        <option value="SYLLABUS">Syllabus</option>
-                        <option value="LAB">Lab</option>
-                        <option value="PROJECT">Project</option>
-                        <option value="OTHER">Other</option>
-                    </select>
+                    <span>Course</span>
+                    <select name="courseId" required></select>
+                </label>
+                <p id="uploadHint" class="hint" hidden>
+                    You are not assigned to any course yet. Ask an admin to assign you first.
+                </p>
+
+                <div class="field-row">
+                    <label class="field">
+                        <span>Type</span>
+                        <select name="type"></select>
+                    </label>
+                    <label class="field">
+                        <span>Season</span>
+                        <select name="season"></select>
+                    </label>
+                    <label class="field">
+                        <span>Year</span>
+                        <input type="number" name="year" required>
+                    </label>
+                </div>
+
+                <label class="field">
+                    <span>Description <em>(optional)</em></span>
+                    <textarea name="description" rows="2" maxlength="1000"
+                              placeholder="What is in this file?"></textarea>
                 </label>
             </div>
+            <div class="modal-foot">
+                <button type="button" class="btn-ghost" data-close>Cancel</button>
+                <button type="submit" class="btn-accent">Upload</button>
+            </div>
+        </form>
+    </div>
+</div>
 
-            <div class="field-row">
+<div id="passwordModal" class="modal-backdrop">
+    <div class="modal modal-sm" role="dialog" aria-modal="true" aria-labelledby="passwordTitle" tabindex="-1">
+        <div class="modal-head">
+            <h2 id="passwordTitle">Change password</h2>
+            <button type="button" class="modal-close" data-close aria-label="Close">&times;</button>
+        </div>
+        <form id="passwordForm">
+            <div class="modal-body">
                 <label class="field">
-                    <span>Year</span>
-                    <input type="number" id="uploadYear" value="2026">
+                    <span>Current password</span>
+                    <input type="password" name="currentPassword" autocomplete="current-password" maxlength="72" required>
                 </label>
-
                 <label class="field">
-                    <span>Season</span>
-                    <select id="uploadSeason">
-                        <option value="FALL">Fall</option>
-                        <option value="SPRING">Spring</option>
-                        <option value="SUMMER">Summer</option>
-                    </select>
+                    <span>New password <em>(at least 8 characters)</em></span>
+                    <input type="password" name="newPassword" autocomplete="new-password" minlength="8" maxlength="72" required>
+                </label>
+                <label class="field">
+                    <span>Repeat new password</span>
+                    <input type="password" name="confirmPassword" autocomplete="new-password" minlength="8" maxlength="72" required>
                 </label>
             </div>
-
-            <label class="field field-wide">
-                <span>Description <em>(optional)</em></span>
-                <input type="text" id="uploadDescription" placeholder="Short description">
-            </label>
-        </div>
-        <div class="modal-foot">
-            <button class="btn-ghost" data-close="uploadModal">Cancel</button>
-            <button id="uploadBtn" class="btn-accent">Upload</button>
-        </div>
+            <div class="modal-foot">
+                <button type="button" class="btn-ghost" data-close>Cancel</button>
+                <button type="submit" class="btn-accent">Change password</button>
+            </div>
+        </form>
     </div>
 </div>
 
 <div id="adminModal" class="modal-backdrop">
-    <div class="modal modal-lg">
+    <div class="modal modal-lg" role="dialog" aria-modal="true" aria-labelledby="adminTitle" tabindex="-1">
         <div class="modal-head">
-            <h2>Admin — Manage System</h2>
-            <button class="modal-close" data-close="adminModal">&times;</button>
+            <h2 id="adminTitle">Manage the archive</h2>
+            <button type="button" class="modal-close" data-close aria-label="Close">&times;</button>
         </div>
 
-        <div class="admin-tabs">
-            <button class="tab-btn active" data-tab="faculty">Faculty</button>
-            <button class="tab-btn" data-tab="department">Department</button>
-            <button class="tab-btn" data-tab="course">Course</button>
-            <button class="tab-btn" data-tab="lecturer">Lecturer</button>
-            <button class="tab-btn" data-tab="student">Student</button>
-            <button class="tab-btn" data-tab="alias">Alias</button>
+        <div class="admin-tabs" role="tablist" aria-label="Admin sections">
+            <button type="button" role="tab" class="tab-btn" id="tabbtn-faculty" data-tab="faculty" aria-controls="tab-faculty" aria-selected="true">Faculty</button>
+            <button type="button" role="tab" class="tab-btn" id="tabbtn-department" data-tab="department" aria-controls="tab-department" aria-selected="false" tabindex="-1">Department</button>
+            <button type="button" role="tab" class="tab-btn" id="tabbtn-course" data-tab="course" aria-controls="tab-course" aria-selected="false" tabindex="-1">Course</button>
+            <button type="button" role="tab" class="tab-btn" id="tabbtn-alias" data-tab="alias" aria-controls="tab-alias" aria-selected="false" tabindex="-1">Alias</button>
+            <button type="button" role="tab" class="tab-btn" id="tabbtn-lecturer" data-tab="lecturer" aria-controls="tab-lecturer" aria-selected="false" tabindex="-1">Lecturer</button>
+            <button type="button" role="tab" class="tab-btn" id="tabbtn-student" data-tab="student" aria-controls="tab-student" aria-selected="false" tabindex="-1">Student</button>
+            <button type="button" role="tab" class="tab-btn" id="tabbtn-assign" data-tab="assign" aria-controls="tab-assign" aria-selected="false" tabindex="-1">Assign</button>
+            <button type="button" role="tab" class="tab-btn" id="tabbtn-enroll" data-tab="enroll" aria-controls="tab-enroll" aria-selected="false" tabindex="-1">Enroll</button>
+            <button type="button" role="tab" class="tab-btn" id="tabbtn-index" data-tab="index" aria-controls="tab-index" aria-selected="false" tabindex="-1">Index</button>
         </div>
 
         <div class="modal-body">
 
-            <div class="tab-pane active" id="tab-faculty">
-                <label class="field"><span>Faculty name</span>
-                    <input type="text" id="facName" placeholder="e.g. Faculty of Engineering"></label>
-                <button class="btn-accent" id="createFacBtn">Create faculty</button>
-                <div class="existing" id="listFaculties"></div>
-            </div>
+            <section class="tab-pane" id="tab-faculty" role="tabpanel" aria-labelledby="tabbtn-faculty">
+                <form id="facultyForm" class="pane-form">
+                    <label class="field">
+                        <span>Faculty name</span>
+                        <input type="text" name="name" maxlength="200" placeholder="e.g. Faculty of Engineering" required>
+                    </label>
+                    <div class="form-actions">
+                        <button type="submit" class="btn-accent">Create faculty</button>
+                        <button type="button" class="btn-link" data-cancel hidden>Cancel</button>
+                    </div>
+                </form>
+                <div class="existing-head">
+                    <h3>Faculties</h3>
+                    <span class="count" id="facultyCount"></span>
+                </div>
+                <p class="hint">Click a faculty to edit it.</p>
+                <div class="existing" id="facultyList"></div>
+            </section>
 
-            <div class="tab-pane" id="tab-department">
-                <label class="field"><span>Faculty</span>
-                    <select id="depFaculty"></select></label>
-                <div class="field-row">
-                    <label class="field"><span>Code</span>
-                        <input type="text" id="depCode" placeholder="e.g. CENG"></label>
-                    <label class="field"><span>Name</span>
-                        <input type="text" id="depName" placeholder="e.g. Computer Engineering"></label>
+            <section class="tab-pane" id="tab-department" role="tabpanel" aria-labelledby="tabbtn-department" hidden>
+                <form id="departmentForm" class="pane-form">
+                    <label class="field">
+                        <span>Faculty</span>
+                        <select name="facultyId" required></select>
+                    </label>
+                    <div class="field-row">
+                        <label class="field">
+                            <span>Code</span>
+                            <input type="text" name="code" maxlength="50" placeholder="e.g. CENG" required>
+                        </label>
+                        <label class="field">
+                            <span>Name</span>
+                            <input type="text" name="name" maxlength="200" placeholder="e.g. Computer Engineering" required>
+                        </label>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn-accent">Create department</button>
+                        <button type="button" class="btn-link" data-cancel hidden>Cancel</button>
+                    </div>
+                </form>
+                <div class="existing-head">
+                    <h3>Departments</h3>
+                    <span class="count" id="departmentCount"></span>
                 </div>
-                <button class="btn-accent" id="createDepBtn">Create department</button>
-                <div class="existing" id="listDepartments"></div>
-            </div>
+                <p class="hint">Click a department to edit it.</p>
+                <div class="existing" id="departmentList"></div>
+            </section>
 
-            <div class="tab-pane" id="tab-course">
-                <label class="field"><span>Department</span>
-                    <select id="crsDepartment"></select></label>
-                <div class="field-row">
-                    <label class="field"><span>Code</span>
-                        <input type="text" id="crsCode" placeholder="e.g. BIL201"></label>
-                    <label class="field"><span>Name</span>
-                        <input type="text" id="crsName" placeholder="e.g. Computer Programming II"></label>
+            <section class="tab-pane" id="tab-course" role="tabpanel" aria-labelledby="tabbtn-course" hidden>
+                <form id="courseForm" class="pane-form">
+                    <label class="field">
+                        <span>Department</span>
+                        <select name="departmentId" required></select>
+                    </label>
+                    <div class="field-row">
+                        <label class="field">
+                            <span>Code</span>
+                            <input type="text" name="code" maxlength="50" placeholder="e.g. BIL201" required>
+                        </label>
+                        <label class="field">
+                            <span>Name</span>
+                            <input type="text" name="name" maxlength="200" placeholder="e.g. Computer Programming II" required>
+                        </label>
+                    </div>
+                    <label class="field">
+                        <span>Description <em>(optional)</em></span>
+                        <input type="text" name="description" maxlength="1000" placeholder="Short description">
+                    </label>
+                    <div class="form-actions">
+                        <button type="submit" class="btn-accent">Create course</button>
+                        <button type="button" class="btn-link" data-cancel hidden>Cancel</button>
+                    </div>
+                </form>
+                <div class="existing-head">
+                    <h3>Courses</h3>
+                    <span class="count" id="courseCount"></span>
                 </div>
-                <label class="field"><span>Description <em>(optional)</em></span>
-                    <input type="text" id="crsDesc" placeholder="Short description"></label>
-                <button class="btn-accent" id="createCrsBtn">Create course</button>
-                <div class="existing" id="listCourses"></div>
-            </div>
+                <p class="hint">Click a course to edit it. Saving re-indexes its files.</p>
+                <div class="existing" id="courseList"></div>
+            </section>
 
-            <div class="tab-pane" id="tab-lecturer">
-                <label class="field"><span>Department</span>
-                    <select id="lecDepartment"></select></label>
-                <div class="field-row">
-                    <label class="field"><span>Title</span>
-                        <select id="lecTitle">
-                            <option value="PROFESSOR">Professor</option>
-                            <option value="ASSOCIATE_PROFESSOR">Associate Professor</option>
-                            <option value="ASSISTANT_PROFESSOR">Assistant Professor</option>
-                            <option value="LECTURER">Lecturer</option>
-                            <option value="RESEARCH_ASSISTANT">Research Assistant</option>
-                            <option value="INSTRUCTOR">Instructor</option>
-                        </select></label>
+            <section class="tab-pane" id="tab-alias" role="tabpanel" aria-labelledby="tabbtn-alias" hidden>
+                <form id="aliasForm" class="pane-form">
+                    <label class="field">
+                        <span>Course</span>
+                        <select name="courseId" required></select>
+                    </label>
+                    <label class="field">
+                        <span>Alias</span>
+                        <input type="text" name="alias" maxlength="50" placeholder="e.g. BP2" required>
+                    </label>
+                    <div class="form-actions">
+                        <button type="submit" class="btn-accent">Add alias</button>
+                    </div>
+                </form>
+                <p class="hint">Aliases are short names students search for, like "BP2" for Computer Programming II.</p>
+                <div class="existing-head">
+                    <h3>Aliases of this course</h3>
                 </div>
-                <div class="field-row">
-                    <label class="field"><span>First name</span>
-                        <input type="text" id="lecFirst"></label>
-                    <label class="field"><span>Last name</span>
-                        <input type="text" id="lecLast"></label>
-                </div>
-                <label class="field"><span>Email</span>
-                    <input type="email" id="lecEmail" placeholder="name@university.edu"></label>
-                <label class="field"><span>Password</span>
-                    <input type="text" id="lecPassword" placeholder="initial password"></label>
-                <button class="btn-accent" id="createLecBtn">Create lecturer</button>
-                <div class="existing" id="listLecturers"></div>
-            </div>
+                <div class="existing" id="aliasList"></div>
+            </section>
 
-            <div class="tab-pane" id="tab-student">
-                <label class="field"><span>Department</span>
-                    <select id="stuDepartment"></select></label>
-                <div class="field-row">
-                    <label class="field"><span>Student number</span>
-                        <input type="text" id="stuNumber" placeholder="e.g. 2026001"></label>
+            <section class="tab-pane" id="tab-lecturer" role="tabpanel" aria-labelledby="tabbtn-lecturer" hidden>
+                <form id="lecturerForm" class="pane-form">
+                    <div class="field-row">
+                        <label class="field">
+                            <span>Department</span>
+                            <select name="departmentId" required></select>
+                        </label>
+                        <label class="field">
+                            <span>Title</span>
+                            <select name="title" required></select>
+                        </label>
+                    </div>
+                    <div class="field-row">
+                        <label class="field">
+                            <span>First name</span>
+                            <input type="text" name="firstName" maxlength="100" autocomplete="off" required>
+                        </label>
+                        <label class="field">
+                            <span>Last name</span>
+                            <input type="text" name="lastName" maxlength="100" autocomplete="off" required>
+                        </label>
+                    </div>
+                    <div class="field-row">
+                        <label class="field">
+                            <span>Email</span>
+                            <input type="email" name="email" maxlength="254" placeholder="name@university.edu" autocomplete="off" required>
+                        </label>
+                        <label class="field">
+                            <span>Initial password</span>
+                            <input type="password" name="password" minlength="8" maxlength="72" autocomplete="new-password" required>
+                        </label>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn-accent">Create lecturer</button>
+                    </div>
+                </form>
+                <div class="existing-head">
+                    <h3>Lecturers</h3>
+                    <span class="count" id="lecturerCount"></span>
                 </div>
-                <div class="field-row">
-                    <label class="field"><span>First name</span>
-                        <input type="text" id="stuFirst"></label>
-                    <label class="field"><span>Last name</span>
-                        <input type="text" id="stuLast"></label>
-                </div>
-                <label class="field"><span>Email</span>
-                    <input type="email" id="stuEmail" placeholder="name@university.edu"></label>
-                <label class="field"><span>Password</span>
-                    <input type="text" id="stuPassword" placeholder="initial password"></label>
-                <button class="btn-accent" id="createStuBtn">Create student</button>
-                <div class="existing" id="listStudents"></div>
-            </div>
+                <div class="existing" id="lecturerList"></div>
+            </section>
 
-            <div class="tab-pane" id="tab-alias">
-                <label class="field"><span>Course</span>
-                    <select id="aliasCourse"></select></label>
-                <label class="field"><span>Alias</span>
-                    <input type="text" id="aliasText" placeholder="e.g. BP2"></label>
-                <button class="btn-accent" id="createAliasBtn">Add alias</button>
-                <p class="hint">Aliases are abbreviations students might search (e.g. “BP2” for Computer Programming II).</p>
-            </div>
+            <section class="tab-pane" id="tab-student" role="tabpanel" aria-labelledby="tabbtn-student" hidden>
+                <form id="studentForm" class="pane-form">
+                    <div class="field-row">
+                        <label class="field">
+                            <span>Department</span>
+                            <select name="departmentId" required></select>
+                        </label>
+                        <label class="field">
+                            <span>Student number</span>
+                            <input type="text" name="studentNumber" maxlength="30" placeholder="e.g. 2026001" autocomplete="off" required>
+                        </label>
+                    </div>
+                    <div class="field-row">
+                        <label class="field">
+                            <span>First name</span>
+                            <input type="text" name="firstName" maxlength="100" autocomplete="off" required>
+                        </label>
+                        <label class="field">
+                            <span>Last name</span>
+                            <input type="text" name="lastName" maxlength="100" autocomplete="off" required>
+                        </label>
+                    </div>
+                    <div class="field-row">
+                        <label class="field">
+                            <span>Email</span>
+                            <input type="email" name="email" maxlength="254" placeholder="name@university.edu" autocomplete="off" required>
+                        </label>
+                        <label class="field">
+                            <span>Initial password</span>
+                            <input type="password" name="password" minlength="8" maxlength="72" autocomplete="new-password" required>
+                        </label>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn-accent">Create student</button>
+                    </div>
+                </form>
+                <div class="existing-head">
+                    <h3>Students</h3>
+                    <span class="count" id="studentCount"></span>
+                </div>
+                <div class="existing" id="studentList"></div>
+            </section>
+
+            <section class="tab-pane" id="tab-assign" role="tabpanel" aria-labelledby="tabbtn-assign" hidden>
+                <form id="assignForm" class="pane-form">
+                    <div class="field-row">
+                        <label class="field">
+                            <span>Course</span>
+                            <select name="courseId" required></select>
+                        </label>
+                        <label class="field">
+                            <span>Lecturer</span>
+                            <select name="lecturerId" required></select>
+                        </label>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn-accent">Assign lecturer</button>
+                    </div>
+                </form>
+                <p class="hint">Lecturers can only upload files to the courses they are assigned to.</p>
+                <div class="existing-head">
+                    <h3>Assignments</h3>
+                    <span class="count" id="assignCount"></span>
+                </div>
+                <div class="existing" id="assignList"></div>
+            </section>
+
+            <section class="tab-pane" id="tab-enroll" role="tabpanel" aria-labelledby="tabbtn-enroll" hidden>
+                <form id="enrollForm" class="pane-form">
+                    <div class="field-row">
+                        <label class="field">
+                            <span>Student</span>
+                            <select name="studentId" required></select>
+                        </label>
+                        <label class="field">
+                            <span>Course</span>
+                            <select name="courseId" required></select>
+                        </label>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn-accent">Enroll student</button>
+                    </div>
+                </form>
+                <p class="hint">Enrolled students can narrow their searches to "My courses".</p>
+                <div class="existing-head">
+                    <h3>Enrollments</h3>
+                    <span class="count" id="enrollCount"></span>
+                </div>
+                <div class="existing" id="enrollList"></div>
+            </section>
+
+            <section class="tab-pane" id="tab-index" role="tabpanel" aria-labelledby="tabbtn-index" hidden>
+                <p class="hint">
+                    Files are indexed when they are uploaded. If the embedding service was down at the time,
+                    they are picked up automatically a few minutes later, or you can start it here.
+                </p>
+                <div class="form-actions">
+                    <button type="button" class="btn-accent" id="indexMissingBtn">Index missing</button>
+                    <button type="button" class="btn-outline" id="indexAllBtn">Re-index everything</button>
+                </div>
+                <div class="status-box" id="indexStatus" aria-live="polite"></div>
+            </section>
 
         </div>
     </div>
 </div>
 
-<div id="toasts" class="toasts"></div>
+<div id="toasts" class="toasts" aria-live="polite"></div>
 
-<script src="app.js"></script>
 </body>
 </html>
